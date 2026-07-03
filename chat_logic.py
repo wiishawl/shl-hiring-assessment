@@ -18,7 +18,14 @@ import llm_router
 import retrieval
 
 load_dotenv()
-client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+_api_key = os.environ.get("GEMINI_API_KEY")
+if not _api_key:
+    raise RuntimeError(
+        "GEMINI_API_KEY environment variable is not set. Set it in your "
+        ".env file locally, or in your hosting platform's environment "
+        "variable settings when deployed."
+    )
+client = genai.Client(api_key=_api_key)
 CHAT_MODEL = "gemini-2.5-flash-lite"
 
 _catalog = retrieval._catalog  # reuse the already-loaded catalog
@@ -199,6 +206,27 @@ def handle_chat(messages):
     messages: list of {"role": "user"|"assistant", "content": str}
     Returns the exact API response dict.
     """
+    # Defensive: empty or missing conversation -- don't call the LLM at all,
+    # just ask the opening clarifying question. Saves an API call and avoids
+    # sending an empty/invalid request to Gemini.
+    if not messages:
+        return {
+            "reply": "Hi! I can help you find the right SHL assessments. What role are you hiring for, or what skills would you like to assess?",
+            "recommendations": [],
+            "end_of_conversation": False,
+        }
+
+    # Defensive: normalize any unexpected role values so a malformed client
+    # request can't crash the router (e.g. role missing/blank/unexpected).
+    normalized_messages = []
+    for m in messages:
+        role = m.get("role", "user")
+        if role not in ("user", "assistant"):
+            role = "user"
+        content = m.get("content", "") or ""
+        normalized_messages.append({"role": role, "content": content})
+    messages = normalized_messages
+
     routed = llm_router.route(messages)
     intent = routed["intent"]
 

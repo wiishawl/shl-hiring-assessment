@@ -18,11 +18,27 @@ from google import genai
 from google.genai import types
 
 load_dotenv()
-client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+_api_key = os.environ.get("GEMINI_API_KEY")
+if not _api_key:
+    raise RuntimeError(
+        "GEMINI_API_KEY environment variable is not set. Set it in your "
+        ".env file locally, or in your hosting platform's environment "
+        "variable settings when deployed."
+    )
+client = genai.Client(api_key=_api_key)
 MODEL = "gemini-embedding-001"
 
-with open('embedding_index.pkl', 'rb') as f:
-    _data = pickle.load(f)
+try:
+    with open('embedding_index.pkl', 'rb') as f:
+        _data = pickle.load(f)
+except FileNotFoundError:
+    raise RuntimeError(
+        "embedding_index.pkl not found. This file must be present in the "
+        "working directory at startup (built by build_embeddings.py) and "
+        "must be included in the deployment (not gitignored)."
+    )
+except Exception as e:
+    raise RuntimeError(f"Failed to load embedding_index.pkl: {e}")
 
 _vectors = _data['vectors']
 _catalog = _data['catalog']

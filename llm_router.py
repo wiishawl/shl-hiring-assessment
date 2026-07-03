@@ -19,7 +19,14 @@ from google import genai
 from google.genai import types
 
 load_dotenv()
-client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+_api_key = os.environ.get("GEMINI_API_KEY")
+if not _api_key:
+    raise RuntimeError(
+        "GEMINI_API_KEY environment variable is not set. Set it in your "
+        ".env file locally, or in your hosting platform's environment "
+        "variable settings when deployed."
+    )
+client = genai.Client(api_key=_api_key)
 CHAT_MODEL = "gemini-2.5-flash-lite"
 
 SYSTEM_INSTRUCTION = """You are the routing brain for an SHL assessment recommendation agent.
