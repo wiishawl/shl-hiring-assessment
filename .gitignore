@@ -1,0 +1,9 @@
+.env
+venv/
+__pycache__/
+*.pyc
+retrieval_index.pkl
+embedding_progress.pkl
+.DS_Store
+.vscode/
+server_log.txt
