@@ -47,12 +47,12 @@ _normalized_vectors = _vectors / _norms
 
 
 import time
-from google.genai.errors import ClientError
+from google.genai.errors import ClientError, ServerError
 
 
 def _embed_query(text):
     delay = 2
-    max_retries = 2
+    max_retries = 3
     for attempt in range(max_retries):
         try:
             result = client.models.embed_content(
@@ -65,10 +65,11 @@ def _embed_query(text):
             )
             vec = np.array(result.embeddings[0].values, dtype=np.float32)
             return vec / np.linalg.norm(vec)
-        except ClientError as e:
-            if ("RESOURCE_EXHAUSTED" in str(e) or "429" in str(e)) and attempt < max_retries - 1:
+        except (ClientError, ServerError) as e:
+            is_retryable = "RESOURCE_EXHAUSTED" in str(e) or "429" in str(e) or "UNAVAILABLE" in str(e) or "503" in str(e)
+            if is_retryable and attempt < max_retries - 1:
                 time.sleep(delay)
-                delay = min(delay * 2, 4)
+                delay = min(delay * 2, 5)
             else:
                 raise
 

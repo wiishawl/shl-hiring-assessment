@@ -134,19 +134,23 @@ import time
 from google.genai.errors import ClientError
 
 
-def _generate_with_retry(contents, config, max_retries=2):
+import time
+from google.genai.errors import ClientError, ServerError
+
+
+def _generate_with_retry(contents, config, max_retries=3):
     delay = 2
     for attempt in range(max_retries):
         try:
             return client.models.generate_content(model=CHAT_MODEL, contents=contents, config=config)
-        except ClientError as e:
-            if "RESOURCE_EXHAUSTED" in str(e) or "429" in str(e):
-                if attempt < max_retries - 1:
-                    time.sleep(delay)
-                    delay = min(delay * 2, 4)
+        except (ClientError, ServerError) as e:
+            is_retryable = "RESOURCE_EXHAUSTED" in str(e) or "429" in str(e) or "UNAVAILABLE" in str(e) or "503" in str(e)
+            if is_retryable and attempt < max_retries - 1:
+                time.sleep(delay)
+                delay = min(delay * 2, 5)
             else:
                 raise
-    raise RuntimeError("Router LLM call failed after repeated rate limiting")
+    raise RuntimeError("Router LLM call failed after repeated errors")
 
 
 def route(messages):
